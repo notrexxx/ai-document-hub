@@ -67,3 +67,7 @@ backend/*.sqlite
 
 # Ignore Mac system files
 .DS_Store
+
+dist/
+node_modules/
+*.tsbuildinfo
