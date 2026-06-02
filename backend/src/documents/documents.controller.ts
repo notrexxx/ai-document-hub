@@ -1,10 +1,10 @@
-import { 
-  Controller, 
-  Post, 
-  Get, 
-  UseInterceptors, 
-  UploadedFile, 
-  BadRequestException
+import {
+  Controller,
+  Post,
+  Get,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentsService } from './documents.service';
@@ -30,7 +30,9 @@ export class DocumentsController {
     // 3. Robust Extension Validation (Perfect for crossing Windows/Linux environments)
     const fileExtension = path.extname(file.originalname).toLowerCase();
     if (fileExtension !== '.txt') {
-      throw new BadRequestException('Invalid file type. Only standard .txt files are allowed.');
+      throw new BadRequestException(
+        'Invalid file type. Only standard .txt files are allowed.',
+      );
     }
 
     // 4. Send to service for database insertion

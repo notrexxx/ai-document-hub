@@ -13,7 +13,7 @@ import { ChatModule } from './chat/chat.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    
+
     // 2. Boot up the SQLite Database Engine and register entities
     TypeOrmModule.forRoot({
       type: 'better-sqlite3',

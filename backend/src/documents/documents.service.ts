@@ -32,7 +32,7 @@ export class DocumentsService {
   // 2. Fetch all saved documents (useful for our future frontend dashboard)
   async findAllDocuments(): Promise<Document[]> {
     return await this.documentRepository.find({
-      order: { createdAt: 'DESC' } // Newest first
+      order: { createdAt: 'DESC' }, // Newest first
     });
   }
 }

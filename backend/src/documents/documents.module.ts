@@ -6,7 +6,7 @@ import { Document } from './entities/document.entity';
 
 @Module({
   // Register the entity with this specific module
-  imports: [TypeOrmModule.forFeature([Document])], 
+  imports: [TypeOrmModule.forFeature([Document])],
   providers: [DocumentsService],
   controllers: [DocumentsController],
 })

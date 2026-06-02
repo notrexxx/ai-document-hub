@@ -20,14 +20,19 @@ export class ChatService {
     const apiKey = process.env.GROQ_API_KEY;
 
     if (!apiKey) {
-      throw new Error('GROQ_API_KEY is missing. The .env file was not loaded correctly.');
+      throw new Error(
+        'GROQ_API_KEY is missing. The .env file was not loaded correctly.',
+      );
     }
 
     this.groq = new Groq({
       apiKey: apiKey,
     });
 
-    Logger.log('✅ API Key successfully loaded securely from .env!', 'ChatService');
+    Logger.log(
+      '✅ API Key successfully loaded securely from .env!',
+      'ChatService',
+    );
   }
 
   async askQuestion(documentId: string, question: string) {
@@ -51,12 +56,14 @@ export class ChatService {
             content: question,
           },
         ],
-        model: 'llama-3.1-8b-instant', 
-        temperature: 0.1, 
+        model: 'llama-3.1-8b-instant',
+        temperature: 0.1,
       });
 
       return {
-        answer: chatCompletion.choices[0]?.message?.content || 'No response generated.',
+        answer:
+          chatCompletion.choices[0]?.message?.content ||
+          'No response generated.',
       };
     } catch (error) {
       console.error('Groq API Error:', error);
