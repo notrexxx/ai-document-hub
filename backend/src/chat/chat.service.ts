@@ -1,9 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-// Notice the updated import path here!
-import { Document } from '../documents/entities/document.entity'; 
+import { Document } from '../documents/entities/document.entity';
 import { Groq } from 'groq-sdk';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+// Force dotenv to load the file using an absolute path to bypass TypeScript hoisting
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 @Injectable()
 export class ChatService {
@@ -13,19 +17,20 @@ export class ChatService {
     @InjectRepository(Document)
     private documentRepository: Repository<Document>,
   ) {
-    // 1. Initialize Groq securely using the environment variable
     const apiKey = process.env.GROQ_API_KEY;
+
     if (!apiKey) {
-      throw new Error('GROQ_API_KEY is not defined in the environment variables');
+      throw new Error('GROQ_API_KEY is missing. The .env file was not loaded correctly.');
     }
-    
+
     this.groq = new Groq({
       apiKey: apiKey,
     });
+
+    Logger.log('✅ API Key successfully loaded securely from .env!', 'ChatService');
   }
 
   async askQuestion(documentId: string, question: string) {
-    // 2. Retrieve the document from SQLite
     const document = await this.documentRepository.findOne({
       where: { id: documentId },
     });
@@ -35,7 +40,6 @@ export class ChatService {
     }
 
     try {
-      // 3. Send the document content and the user's question to Llama 3.1
       const chatCompletion = await this.groq.chat.completions.create({
         messages: [
           {
@@ -51,7 +55,6 @@ export class ChatService {
         temperature: 0.1, 
       });
 
-      // 4. Return the AI's answer
       return {
         answer: chatCompletion.choices[0]?.message?.content || 'No response generated.',
       };

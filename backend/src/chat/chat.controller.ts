@@ -1,7 +1,8 @@
-import { Controller, Post, Body, BadRequestException } from '@nestjs/common';
+// backend/src/chat/chat.controller.ts
+import { Controller, Post, Body } from '@nestjs/common';
 import { ChatService } from './chat.service';
 
-@Controller('chat') // Routes start with http://localhost:3000/chat
+@Controller('chat')
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
@@ -10,9 +11,7 @@ export class ChatController {
     @Body('documentId') documentId: string,
     @Body('question') question: string,
   ) {
-    if (!documentId || !question) {
-      throw new BadRequestException('Both documentId and question fields are strictly required.');
-    }
-    return await this.chatService.askDocument(documentId, question);
+    // Calling askQuestion to match the updated ChatService implementation
+    return await this.chatService.askQuestion(documentId, question);
   }
 }
