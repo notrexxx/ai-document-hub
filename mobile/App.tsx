@@ -1,27 +1,45 @@
 import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, SafeAreaView, View, Text, Platform } from 'react-native';
+import { StyleSheet, SafeAreaView, View, Text, Platform, useColorScheme, UIManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DocumentUploader from './src/components/DocumentUploader';
 import ChatInterface from './src/components/ChatInterface';
 
+// Enable Layout Animations for Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 export default function App() {
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
+  
+  // Detect System Dark Mode
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+
+  // Dynamic Theme Colors
+  const theme = {
+    background: isDark ? '#000000' : '#F2F2F7',
+    surface: isDark ? '#1C1C1E' : '#FFFFFF',
+    text: isDark ? '#FFFFFF' : '#1C1C1E',
+    border: isDark ? '#38383A' : '#E5E5EA',
+    icon: isDark ? '#98989D' : '#8E8E93',
+  };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <StatusBar style={isDark ? "light" : "dark"} />
       
       {/* Premium Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         <View style={styles.headerTitleContainer}>
           <Ionicons name="cube" size={24} color="#007AFF" style={styles.headerIcon} />
-          <Text style={styles.headerTitle}>AI Document Hub</Text>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>AI Document Hub</Text>
         </View>
-        <Ionicons name="settings-outline" size={22} color="#8E8E93" />
+        <Ionicons name="settings-outline" size={22} color={theme.icon} />
       </View>
 
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
         {!activeDocumentId ? (
           <DocumentUploader onUploadSuccess={(id) => setActiveDocumentId(id)} />
         ) : (
@@ -38,7 +56,6 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F2F2F7', // iOS standard background
     paddingTop: Platform.OS === 'android' ? 40 : 0,
   },
   header: {
@@ -47,9 +64,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -67,7 +82,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1C1C1E',
     letterSpacing: -0.5,
   },
   container: {
