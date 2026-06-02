@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../api/client';
 
 interface UploaderProps {
@@ -8,59 +9,52 @@ interface UploaderProps {
 }
 
 export default function DocumentUploader({ onUploadSuccess }: UploaderProps) {
-  const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // 1. Open the native file picker (Filters for .txt files)
-  const pickDocument = async () => {
+  const handleUpload = async () => {
+    setError(null);
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'text/plain', 
+        type: ['text/plain', 'text/markdown'], 
         copyToCacheDirectory: true,
       });
 
-      if (!result.canceled && result.assets.length > 0) {
-        setSelectedFile(result.assets[0]);
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
       }
-    } catch (err) {
-      console.error('Failed to pick document:', err);
-    }
-  };
 
-  // 2. Package the file and send it to your NestJS backend
-  const uploadDocument = async () => {
-    if (!selectedFile) return;
+      setIsUploading(true);
+      const file = result.assets[0];
 
-    setIsUploading(true);
-    const formData = new FormData();
+      const formData = new FormData();
 
-    // The Cross-Platform Fix: 
-    // Web browsers need the raw File object, Mobile needs the URI map
-    if (Platform.OS === 'web') {
-      formData.append('file', selectedFile.file as Blob);
-    } else {
-      formData.append('file', {
-        uri: selectedFile.uri,
-        name: selectedFile.name,
-        type: selectedFile.mimeType || 'text/plain',
-      } as any);
-    }
+      // Platform specific upload logic!
+      if (Platform.OS === 'web' && file.file) {
+        // Web expects the raw HTML5 File object
+        formData.append('file', file.file as any);
+      } else {
+        // Mobile expects the URI object mapping
+        formData.append('file', {
+          uri: Platform.OS === 'ios' ? file.uri.replace('file://', '') : file.uri,
+          name: file.name,
+          type: file.mimeType || 'text/plain',
+        } as any);
+      }
 
-    try {
       const response = await apiClient.post('/documents/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
-      Alert.alert('Success!', 'File saved securely to your database.');
-      setSelectedFile(null); // Clear the UI after success
-      
-      // Tell the main App that we have a document ready for the AI
+      // Pass the new document ID up to the App component
       onUploadSuccess(response.data.id);
-    } catch (error) {
-      console.error('Upload Error:', error);
-      Alert.alert('Upload Failed', 'Make sure your NestJS backend is running and the IP address is correct.');
+    } catch (err: any) {
+      console.error('Upload Error:', err);
+      // Give a more descriptive error if the backend rejects it
+      const errorMessage = err.response?.data?.message || 'Failed to upload the file. Ensure your backend is running.';
+      setError(errorMessage);
     } finally {
       setIsUploading(false);
     }
@@ -68,104 +62,145 @@ export default function DocumentUploader({ onUploadSuccess }: UploaderProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Document Hub</Text>
-      
-      {!selectedFile ? (
-        <TouchableOpacity style={styles.pickButton} onPress={pickDocument}>
-          <Text style={styles.buttonText}>Select .txt File</Text>
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.fileCard}>
-          <Text style={styles.fileName} numberOfLines={1} ellipsizeMode="middle">
-            {selectedFile.name}
-          </Text>
-          <Text style={styles.fileSize}>
-            {selectedFile.size ? (selectedFile.size / 1024).toFixed(2) + ' KB' : 'Unknown size'}
-          </Text>
-          
-          <TouchableOpacity 
-            style={[styles.uploadButton, isUploading && styles.disabledButton]} 
-            onPress={uploadDocument}
-            disabled={isUploading}
-          >
-            {isUploading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Upload to Backend</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.cancelButton} onPress={() => setSelectedFile(null)}>
-            <Text style={styles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
+      <View style={styles.card}>
+        <View style={styles.iconContainer}>
+          <Ionicons name="cloud-upload-outline" size={48} color="#007AFF" />
         </View>
-      )}
+        
+        <Text style={styles.title}>Upload Knowledge Base</Text>
+        <Text style={styles.subtitle}>
+          Select a text or markdown file to provide context for the AI.
+        </Text>
+
+        <TouchableOpacity 
+          style={[styles.uploadZone, isUploading && styles.uploadZoneDisabled]} 
+          onPress={handleUpload}
+          disabled={isUploading}
+        >
+          {isUploading ? (
+            <View style={styles.loadingState}>
+              <ActivityIndicator size="large" color="#007AFF" />
+              <Text style={styles.loadingText}>Processing Document...</Text>
+            </View>
+          ) : (
+            <View style={styles.idleState}>
+              <Ionicons name="document-attach" size={32} color="#8E8E93" />
+              <Text style={styles.uploadText}>Tap to browse files</Text>
+              <Text style={styles.fileHint}>Supports .txt and .md</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {error && (
+          <View style={styles.errorContainer}>
+            <Ionicons name="warning" size={16} color="#FF3B30" />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
+    flex: 1,
+    backgroundColor: '#F2F2F7',
+    justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
     width: '100%',
+    maxWidth: 400,
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  iconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E5F1FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#333',
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginBottom: 8,
+    textAlign: 'center',
+    letterSpacing: -0.5,
   },
-  pickButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+  subtitle: {
+    fontSize: 15,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 22,
+    paddingHorizontal: 10,
   },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  fileCard: {
+  uploadZone: {
     width: '100%',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#D1D1D6',
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    padding: 32,
+    backgroundColor: '#FAFAFC',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
-  fileName: {
+  uploadZoneDisabled: {
+    borderColor: '#E5E5EA',
+    backgroundColor: '#F2F2F7',
+  },
+  idleState: {
+    alignItems: 'center',
+  },
+  loadingState: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  uploadText: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+    fontWeight: '600',
+    color: '#007AFF',
+    marginTop: 12,
     marginBottom: 4,
   },
-  fileSize: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
+  fileHint: {
+    fontSize: 13,
+    color: '#8E8E93',
   },
-  uploadButton: {
-    backgroundColor: '#34C759',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  disabledButton: {
-    backgroundColor: '#a1d6b2',
-  },
-  cancelButton: {
-    paddingVertical: 8,
-  },
-  cancelText: {
-    color: '#FF3B30',
+  loadingText: {
+    marginTop: 16,
+    fontSize: 15,
     fontWeight: '500',
+    color: '#007AFF',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBE9',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 24,
+    width: '100%',
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 8,
+    flex: 1,
   },
 });

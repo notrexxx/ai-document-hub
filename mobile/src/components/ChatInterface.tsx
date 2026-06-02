@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform, KeyboardAvoidingView } from 'react-native';
 import Markdown from 'react-native-markdown-display';
+import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../api/client';
 
 interface Message {
@@ -22,37 +23,17 @@ export default function ChatInterface({ documentId, onClose }: ChatProps) {
   const sendMessage = async () => {
     if (!inputText.trim()) return;
 
-    // 1. Add user message
-    const userMessage: Message = { 
-      id: Date.now().toString(), 
-      role: 'user', 
-      text: inputText 
-    };
+    const userMessage: Message = { id: Date.now().toString(), role: 'user', text: inputText };
     setMessages((prev) => [...prev, userMessage]);
     setInputText('');
     setIsLoading(true);
 
     try {
-      // 2. Query Backend
-      const response = await apiClient.post('/chat/ask', {
-        documentId,
-        question: userMessage.text,
-      });
-
-      // 3. Append AI response
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'ai',
-        text: response.data.answer,
-      };
+      const response = await apiClient.post('/chat/ask', { documentId, question: userMessage.text });
+      const aiMessage: Message = { id: (Date.now() + 1).toString(), role: 'ai', text: response.data.answer };
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
-      console.error('Chat Error:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'ai',
-        text: 'Connection error. Make sure your NestJS server is running.',
-      };
+      const errorMessage: Message = { id: (Date.now() + 1).toString(), role: 'ai', text: 'Connection error. Make sure your NestJS server is running.' };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -60,126 +41,115 @@ export default function ChatInterface({ documentId, onClose }: ChatProps) {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Active Document Metadata Bar */}
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {/* Sleek Metadata Bar */}
       <View style={styles.metaBar}>
         <View style={styles.metaLeft}>
-          <Text style={styles.metaLabel}>Active Context:</Text>
+          <Ionicons name="document-text" size={16} color="#8E8E93" style={{ marginRight: 6 }} />
           <Text style={styles.metaId} numberOfLines={1} ellipsizeMode="middle">
             {documentId}
           </Text>
         </View>
         <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <Text style={styles.closeButtonText}>Change File</Text>
+          <Ionicons name="close-circle" size={24} color="#8E8E93" />
         </TouchableOpacity>
       </View>
 
-      {/* Message Feed Container */}
-      <ScrollView style={styles.chatArea} contentContainerStyle={{ paddingBottom: 20 }}>
+      {/* Chat Area */}
+      <ScrollView style={styles.chatArea} contentContainerStyle={{ paddingBottom: 30, paddingTop: 20 }}>
         {messages.length === 0 && (
-          <Text style={styles.placeholderText}>
-            Ask anything about the text file you just uploaded!
-          </Text>
+          <View style={styles.emptyState}>
+            <Ionicons name="chatbubbles-outline" size={48} color="#D1D1D6" />
+            <Text style={styles.placeholderText}>
+              Ask anything about the text file you just uploaded!
+            </Text>
+          </View>
         )}
         
         {messages.map((msg) => (
-          <View 
-            key={msg.id} 
-            style={[
-              styles.messageBubble, 
-              msg.role === 'user' ? styles.userBubble : styles.aiBubble
-            ]}
-          >
-            {/* Conditional Rendering: Markdown for AI, Standard Text for User */}
-            {msg.role === 'user' ? (
-              <Text style={styles.userText}>{msg.text}</Text>
-            ) : (
-              <Markdown style={markdownStyles}>
-                {msg.text}
-              </Markdown>
+          <View key={msg.id} style={[styles.messageWrapper, msg.role === 'user' ? styles.userWrapper : styles.aiWrapper]}>
+            {msg.role === 'ai' && (
+              <View style={styles.aiAvatar}>
+                <Ionicons name="sparkles" size={14} color="#FFF" />
+              </View>
             )}
+            <View style={[styles.messageBubble, msg.role === 'user' ? styles.userBubble : styles.aiBubble]}>
+              {msg.role === 'user' ? (
+                <Text style={styles.userText}>{msg.text}</Text>
+              ) : (
+                <Markdown style={markdownStyles}>{msg.text}</Markdown>
+              )}
+            </View>
           </View>
         ))}
-        {isLoading && <ActivityIndicator style={styles.loader} color="#007AFF" />}
+        {isLoading && (
+          <View style={styles.loadingWrapper}>
+             <ActivityIndicator size="small" color="#007AFF" />
+             <Text style={styles.loadingText}>AI is thinking...</Text>
+          </View>
+        )}
       </ScrollView>
 
-      {/* Persistent Input Bar */}
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          placeholder="Type your question..."
-          value={inputText}
-          onChangeText={setInputText}
-          onSubmitEditing={sendMessage}
-        />
-        <TouchableOpacity style={styles.sendButton} onPress={sendMessage} disabled={isLoading}>
-          <Text style={styles.sendButtonText}>Send</Text>
-        </TouchableOpacity>
+      {/* Pill-Shaped Input Row */}
+      <View style={styles.inputContainer}>
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            placeholder="Type your question..."
+            placeholderTextColor="#8E8E93"
+            value={inputText}
+            onChangeText={setInputText}
+            onSubmitEditing={sendMessage}
+          />
+          <TouchableOpacity 
+            style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]} 
+            onPress={sendMessage} 
+            disabled={isLoading || !inputText.trim()}
+          >
+            <Ionicons name="arrow-up" size={20} color="#FFF" />
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
-// Standard UI Styles
 const styles = StyleSheet.create({
-  container: { flex: 1, width: '100%', backgroundColor: '#fff' },
-  metaBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8f9fa', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderColor: '#eee' },
-  metaLeft: { flex: 1, marginRight: 10 },
-  metaLabel: { fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: '600' },
-  metaId: { fontSize: 13, color: '#444', fontWeight: '500' },
-  closeButton: { backgroundColor: '#e0e0e0', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
-  closeButtonText: { color: '#333', fontSize: 12, fontWeight: '600' },
-  chatArea: { flex: 1, padding: 16 },
-  placeholderText: { textAlign: 'center', color: '#999', marginTop: 40, fontStyle: 'italic', lineHeight: 20, paddingHorizontal: 32 },
-  messageBubble: { maxWidth: '90%', padding: 12, borderRadius: 16, marginBottom: 12 },
-  userBubble: { alignSelf: 'flex-end', backgroundColor: '#007AFF', borderBottomRightRadius: 4 },
-  aiBubble: { alignSelf: 'flex-start', backgroundColor: '#F0F0F0', borderBottomLeftRadius: 4 },
-  userText: { color: '#fff', fontSize: 15, lineHeight: 20 },
-  loader: { marginTop: 10, alignSelf: 'flex-start', marginLeft: 10 },
-  inputRow: { flexDirection: 'row', padding: 12, borderTopWidth: 1, borderColor: '#eee', alignItems: 'center', backgroundColor: '#fff' },
-  input: { flex: 1, backgroundColor: '#f9f9f9', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 24, borderWidth: 1, borderColor: '#ddd', marginRight: 10, fontSize: 15, color: '#333' },
-  sendButton: { backgroundColor: '#007AFF', paddingVertical: 10, paddingHorizontal: 18, borderRadius: 24 },
-  sendButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 15 }
+  container: { flex: 1, backgroundColor: '#F2F2F7' },
+  metaBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderColor: '#E5E5EA' },
+  metaLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F2F7', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, marginRight: 16 },
+  metaId: { fontSize: 13, color: '#1C1C1E', fontWeight: '500', flex: 1 },
+  closeButton: { padding: 4 },
+  chatArea: { flex: 1, paddingHorizontal: 16 },
+  emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 60, opacity: 0.7 },
+  placeholderText: { textAlign: 'center', color: '#8E8E93', marginTop: 12, fontSize: 15, fontWeight: '500', paddingHorizontal: 40 },
+  messageWrapper: { flexDirection: 'row', marginBottom: 16, alignItems: 'flex-end' },
+  userWrapper: { justifyContent: 'flex-end' },
+  aiWrapper: { justifyContent: 'flex-start' },
+  aiAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#007AFF', alignItems: 'center', justifyContent: 'center', marginRight: 8, marginBottom: 4 },
+  messageBubble: { maxWidth: '80%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 },
+  userBubble: { backgroundColor: '#007AFF', borderBottomRightRadius: 4 },
+  aiBubble: { backgroundColor: '#FFFFFF', borderBottomLeftRadius: 4 },
+  userText: { color: '#FFFFFF', fontSize: 16, lineHeight: 22 },
+  loadingWrapper: { flexDirection: 'row', alignItems: 'center', marginLeft: 36, marginBottom: 20 },
+  loadingText: { marginLeft: 8, fontSize: 13, color: '#8E8E93', fontWeight: '500' },
+  inputContainer: { backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderColor: '#E5E5EA' },
+  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F2F7', borderRadius: 24, paddingLeft: 16, paddingRight: 6, paddingVertical: 6, borderWidth: 1, borderColor: '#E5E5EA' },
+  input: { flex: 1, fontSize: 16, color: '#1C1C1E', minHeight: 36 },
+  sendButton: { backgroundColor: '#007AFF', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
+  sendButtonDisabled: { backgroundColor: '#A2C9F2' },
 });
 
-// Specific Styles for the Markdown Engine
 const markdownStyles = StyleSheet.create({
-  body: {
-    color: '#222',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  paragraph: {
-    marginTop: 0,
-    marginBottom: 8,
-  },
-  strong: {
-    fontWeight: 'bold',
-  },
-  em: {
-    fontStyle: 'italic',
-  },
-  code_inline: {
-    backgroundColor: '#e9ecef',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    color: '#d63384',
-  },
-  fence: {
-    backgroundColor: '#2b2b2b',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  code_block: {
-    color: '#f8f8f2',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontSize: 13,
-  },
-  list_item: {
-    marginBottom: 4,
-  },
+  body: { color: '#1C1C1E', fontSize: 16, lineHeight: 24 },
+  paragraph: { marginTop: 0, marginBottom: 12 },
+  strong: { fontWeight: '700', color: '#000' },
+  em: { fontStyle: 'italic' },
+  code_inline: { backgroundColor: '#F2F2F7', color: '#FF3B30', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 14, overflow: 'hidden' },
+  fence: { backgroundColor: '#1C1C1E', padding: 16, borderRadius: 12, marginTop: 8, marginBottom: 12 },
+  code_block: { color: '#F8F8F2', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 13 },
+  list_item: { marginBottom: 6 },
 });
