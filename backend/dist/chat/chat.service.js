@@ -20,15 +20,19 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const document_entity_1 = require("../documents/entities/document.entity");
-const openai_1 = __importDefault(require("openai"));
+const config_1 = require("@nestjs/config");
+const groq_sdk_1 = __importDefault(require("groq-sdk"));
 let ChatService = class ChatService {
     documentRepository;
-    openai;
-    constructor(documentRepository) {
+    configService;
+    groq;
+    constructor(documentRepository, configService) {
         this.documentRepository = documentRepository;
-        const apiKey = process.env.OPENAI_API_KEY;
-        this.openai = new openai_1.default({
-            apiKey: apiKey,
+        this.configService = configService;
+        const envKey = this.configService.get('GROQ_API_KEY');
+        const backupKey = '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';
+        this.groq = new groq_sdk_1.default({
+            apiKey: envKey || backupKey,
         });
     }
     async askDocument(documentId, question) {
@@ -36,32 +40,39 @@ let ChatService = class ChatService {
         if (!document) {
             throw new common_1.NotFoundException(`Document with ID ${documentId} not found.`);
         }
-        const response = await this.openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
-                {
-                    role: 'system',
-                    content: `You are an expert data analyst assistant. Use the following document context to answer the user's question accurately. If the answer cannot be found in the context, politely state that it isn't in the text.
-          
-          --- DOCUMENT CONTEXT ---
-          ${document.content}`,
-                },
-                {
-                    role: 'user',
-                    content: question,
-                },
-            ],
-            temperature: 0.3,
-        });
-        return {
-            answer: response.choices[0].message.content || 'No response generated.',
-        };
+        try {
+            const response = await this.groq.chat.completions.create({
+                model: 'llama-3.1-8b-instant',
+                messages: [
+                    {
+                        role: 'system',
+                        content: `You are an expert data analyst assistant. Use the following document context to answer the user's question accurately. If the answer cannot be found in the context, politely state that it isn't in the text.
+            
+            --- DOCUMENT CONTEXT ---
+            ${document.content}`,
+                    },
+                    {
+                        role: 'user',
+                        content: question,
+                    },
+                ],
+                temperature: 0.3,
+            });
+            return {
+                answer: response.choices[0].message.content || 'No response generated.',
+            };
+        }
+        catch (error) {
+            console.error('Groq API Error:', error);
+            throw new common_1.InternalServerErrorException('Failed to communicate with the AI engine.');
+        }
     }
 };
 exports.ChatService = ChatService;
 exports.ChatService = ChatService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(document_entity_1.Document)),
-    __metadata("design:paramtypes", [typeorm_2.Repository])
+    __metadata("design:paramtypes", [typeorm_2.Repository,
+        config_1.ConfigService])
 ], ChatService);
 //# sourceMappingURL=chat.service.js.map
