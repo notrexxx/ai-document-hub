@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import { apiClient } from '../api/client';
 
 interface Message {
@@ -21,7 +22,7 @@ export default function ChatInterface({ documentId, onClose }: ChatProps) {
   const sendMessage = async () => {
     if (!inputText.trim()) return;
 
-    // 1. Add user message to the local UI immediately
+    // 1. Add user message
     const userMessage: Message = { 
       id: Date.now().toString(), 
       role: 'user', 
@@ -32,13 +33,13 @@ export default function ChatInterface({ documentId, onClose }: ChatProps) {
     setIsLoading(true);
 
     try {
-      // 2. Query your NestJS backend (which routes to Llama)
+      // 2. Query Backend
       const response = await apiClient.post('/chat/ask', {
         documentId,
         question: userMessage.text,
       });
 
-      // 3. Append the AI response to the message timeline
+      // 3. Append AI response
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'ai',
@@ -89,9 +90,14 @@ export default function ChatInterface({ documentId, onClose }: ChatProps) {
               msg.role === 'user' ? styles.userBubble : styles.aiBubble
             ]}
           >
-            <Text style={[styles.messageText, msg.role === 'user' ? styles.userText : styles.aiText]}>
-              {msg.text}
-            </Text>
+            {/* Conditional Rendering: Markdown for AI, Standard Text for User */}
+            {msg.role === 'user' ? (
+              <Text style={styles.userText}>{msg.text}</Text>
+            ) : (
+              <Markdown style={markdownStyles}>
+                {msg.text}
+              </Markdown>
+            )}
           </View>
         ))}
         {isLoading && <ActivityIndicator style={styles.loader} color="#007AFF" />}
@@ -114,120 +120,66 @@ export default function ChatInterface({ documentId, onClose }: ChatProps) {
   );
 }
 
+// Standard UI Styles
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    width: '100%', 
-    backgroundColor: '#fff' 
-  },
-  metaBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
-  },
-  metaLeft: {
-    flex: 1,
-    marginRight: 10,
-  },
-  metaLabel: {
-    fontSize: 11,
-    color: '#888',
-    textTransform: 'uppercase',
-    fontWeight: '600',
-  },
-  metaId: {
-    fontSize: 13,
-    color: '#444',
-    fontWeight: '500',
-  },
-  closeButton: {
-    backgroundColor: '#e0e0e0',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-  },
-  closeButtonText: {
-    color: '#333',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  chatArea: { 
-    flex: 1, 
-    padding: 16 
-  },
-  placeholderText: { 
-    textAlign: 'center', 
-    color: '#999', 
-    marginTop: 40, 
-    fontStyle: 'italic',
-    lineHeight: 20,
-    paddingHorizontal: 32,
-  },
-  messageBubble: { 
-    maxWidth: '85%', 
-    padding: 12, 
-    borderRadius: 16, 
-    marginBottom: 12 
-  },
-  userBubble: { 
-    alignSelf: 'flex-end', 
-    backgroundColor: '#007AFF',
-    borderBottomRightRadius: 4,
-  },
-  aiBubble: { 
-    alignSelf: 'flex-start', 
-    backgroundColor: '#F0F0F0',
-    borderBottomLeftRadius: 4,
-  },
-  messageText: { 
-    fontSize: 15, 
-    lineHeight: 20 
-  },
-  userText: { 
-    color: '#fff' 
-  },
-  aiText: { 
-    color: '#222' 
-  },
-  loader: { 
-    marginTop: 10, 
-    alignSelf: 'flex-start',
-    marginLeft: 10
-  },
-  inputRow: { 
-    flexDirection: 'row', 
-    padding: 12, 
-    borderTopWidth: 1, 
-    borderColor: '#eee', 
-    alignItems: 'center',
-    backgroundColor: '#fff'
-  },
-  input: { 
-    flex: 1, 
-    backgroundColor: '#f9f9f9', 
-    paddingVertical: 10,
-    paddingHorizontal: 16, 
-    borderRadius: 24, 
-    borderWidth: 1, 
-    borderColor: '#ddd', 
-    marginRight: 10,
+  container: { flex: 1, width: '100%', backgroundColor: '#fff' },
+  metaBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8f9fa', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderColor: '#eee' },
+  metaLeft: { flex: 1, marginRight: 10 },
+  metaLabel: { fontSize: 11, color: '#888', textTransform: 'uppercase', fontWeight: '600' },
+  metaId: { fontSize: 13, color: '#444', fontWeight: '500' },
+  closeButton: { backgroundColor: '#e0e0e0', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
+  closeButtonText: { color: '#333', fontSize: 12, fontWeight: '600' },
+  chatArea: { flex: 1, padding: 16 },
+  placeholderText: { textAlign: 'center', color: '#999', marginTop: 40, fontStyle: 'italic', lineHeight: 20, paddingHorizontal: 32 },
+  messageBubble: { maxWidth: '90%', padding: 12, borderRadius: 16, marginBottom: 12 },
+  userBubble: { alignSelf: 'flex-end', backgroundColor: '#007AFF', borderBottomRightRadius: 4 },
+  aiBubble: { alignSelf: 'flex-start', backgroundColor: '#F0F0F0', borderBottomLeftRadius: 4 },
+  userText: { color: '#fff', fontSize: 15, lineHeight: 20 },
+  loader: { marginTop: 10, alignSelf: 'flex-start', marginLeft: 10 },
+  inputRow: { flexDirection: 'row', padding: 12, borderTopWidth: 1, borderColor: '#eee', alignItems: 'center', backgroundColor: '#fff' },
+  input: { flex: 1, backgroundColor: '#f9f9f9', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 24, borderWidth: 1, borderColor: '#ddd', marginRight: 10, fontSize: 15, color: '#333' },
+  sendButton: { backgroundColor: '#007AFF', paddingVertical: 10, paddingHorizontal: 18, borderRadius: 24 },
+  sendButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 15 }
+});
+
+// Specific Styles for the Markdown Engine
+const markdownStyles = StyleSheet.create({
+  body: {
+    color: '#222',
     fontSize: 15,
-    color: '#333'
+    lineHeight: 22,
   },
-  sendButton: { 
-    backgroundColor: '#007AFF', 
-    paddingVertical: 10, 
-    paddingHorizontal: 18, 
-    borderRadius: 24 
+  paragraph: {
+    marginTop: 0,
+    marginBottom: 8,
   },
-  sendButtonText: { 
-    color: '#fff', 
+  strong: {
     fontWeight: 'bold',
-    fontSize: 15
-  }
+  },
+  em: {
+    fontStyle: 'italic',
+  },
+  code_inline: {
+    backgroundColor: '#e9ecef',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: '#d63384',
+  },
+  fence: {
+    backgroundColor: '#2b2b2b',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  code_block: {
+    color: '#f8f8f2',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 13,
+  },
+  list_item: {
+    marginBottom: 4,
+  },
 });
