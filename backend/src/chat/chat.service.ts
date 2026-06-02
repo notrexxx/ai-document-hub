@@ -1,9 +1,9 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Document } from '../documents/entities/document.entity';
-import { ConfigService } from '@nestjs/config';
-import Groq from 'groq-sdk';
+// Notice the updated import path here!
+import { Document } from '../documents/entities/document.entity'; 
+import { Groq } from 'groq-sdk';
 
 @Injectable()
 export class ChatService {
@@ -11,53 +11,53 @@ export class ChatService {
 
   constructor(
     @InjectRepository(Document)
-    private readonly documentRepository: Repository<Document>,
-    private readonly configService: ConfigService, 
+    private documentRepository: Repository<Document>,
   ) {
-    // 1. Try to fetch the key cleanly from the environment module
-    const envKey = this.configService.get<string>('GROQ_API_KEY');
+    // 1. Initialize Groq securely using the environment variable
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      throw new Error('GROQ_API_KEY is not defined in the environment variables');
+    }
     
-    // 2. Fail-safe backup key to bypass Windows/NestJS configuration load sync issues
-    const backupKey = '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';
-
     this.groq = new Groq({
-      apiKey: envKey || backupKey, 
+      apiKey: apiKey,
     });
   }
 
-  async askDocument(documentId: string, question: string): Promise<{ answer: string }> {
-    // Fetch the document text out of the SQLite database
-    const document = await this.documentRepository.findOne({ where: { id: documentId } });
+  async askQuestion(documentId: string, question: string) {
+    // 2. Retrieve the document from SQLite
+    const document = await this.documentRepository.findOne({
+      where: { id: documentId },
+    });
+
     if (!document) {
-      throw new NotFoundException(`Document with ID ${documentId} not found.`);
+      throw new NotFoundException('Document not found');
     }
 
     try {
-      // Execute the context payload using Llama 3.1
-      const response = await this.groq.chat.completions.create({
-        model: 'llama-3.1-8b-instant', 
+      // 3. Send the document content and the user's question to Llama 3.1
+      const chatCompletion = await this.groq.chat.completions.create({
         messages: [
           {
             role: 'system',
-            content: `You are an expert data analyst assistant. Use the following document context to answer the user's question accurately. If the answer cannot be found in the context, politely state that it isn't in the text.
-            
-            --- DOCUMENT CONTEXT ---
-            ${document.content}`,
+            content: `You are a helpful AI assistant. Answer the user's question based strictly on the following document content. If the answer is not in the document, say "I cannot answer this based on the provided document."\n\nDocument Content:\n${document.content}`,
           },
           {
             role: 'user',
             content: question,
           },
         ],
-        temperature: 0.3, 
+        model: 'llama-3.1-8b-instant', 
+        temperature: 0.1, 
       });
 
+      // 4. Return the AI's answer
       return {
-        answer: response.choices[0].message.content || 'No response generated.',
+        answer: chatCompletion.choices[0]?.message?.content || 'No response generated.',
       };
     } catch (error) {
       console.error('Groq API Error:', error);
-      throw new InternalServerErrorException('Failed to communicate with the AI engine.');
+      throw new Error('Failed to generate response from the AI model.');
     }
   }
 }
