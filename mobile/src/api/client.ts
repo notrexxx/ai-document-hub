@@ -1,11 +1,11 @@
 import axios from 'axios';
 
-// Replace '192.168.1.X' with your actual IPv4 Address from the ipconfig command.
-// Keep the :3000 port exactly as it is!
-const LOCAL_BACKEND_IP = '192.168.1.103'; 
+// In production (Vercel), EXPO_PUBLIC_API_URL will be your live Render URL.
+// In local development, it safely falls back to your local machine's IP.
+const baseURL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.103:3000';
 
 export const apiClient = axios.create({
-  baseURL: `http://${LOCAL_BACKEND_IP}:3000`,
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
