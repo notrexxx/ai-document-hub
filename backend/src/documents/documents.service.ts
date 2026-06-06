@@ -2,6 +2,9 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Document } from './entities/document.entity';
+import 'multer';
+
+const pdfParse = require('pdf-parse');
 
 @Injectable()
 export class DocumentsService {
@@ -16,8 +19,15 @@ export class DocumentsService {
       throw new BadRequestException('No file provided.');
     }
 
-    // Convert the raw file memory buffer into a readable string
-    const extractedText = file.buffer.toString('utf-8');
+    let extractedText = '';
+
+    // Convert the raw file memory buffer into a readable string based on file type
+    if (file.mimetype === 'application/pdf') {
+      const pdfData = await pdfParse(file.buffer);
+      extractedText = pdfData.text;
+    } else {
+      extractedText = file.buffer.toString('utf-8');
+    }
 
     // Prepare the database record
     const newDocument = this.documentRepository.create({

@@ -27,11 +27,13 @@ export class DocumentsController {
       throw new BadRequestException('File size exceeds the 5MB limit.');
     }
 
-    // 3. Robust Extension Validation (Perfect for crossing Windows/Linux environments)
+    // 3. Robust Extension Validation (Now supports TXT, MD, and PDF)
     const fileExtension = path.extname(file.originalname).toLowerCase();
-    if (fileExtension !== '.txt') {
+    const allowedExtensions = ['.txt', '.md', '.pdf'];
+    
+    if (!allowedExtensions.includes(fileExtension)) {
       throw new BadRequestException(
-        'Invalid file type. Only standard .txt files are allowed.',
+        'Invalid file type. Only standard .txt, .md, or .pdf files are allowed.',
       );
     }
 

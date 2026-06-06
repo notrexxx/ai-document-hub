@@ -40,7 +40,8 @@ export default function DocumentUploader({ onUploadSuccess }: UploaderProps) {
     
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['text/plain', 'text/markdown'], 
+        // THIS IS THE KEY UPGRADE: Added 'application/pdf'
+        type: ['text/plain', 'text/markdown', 'application/pdf'], 
         copyToCacheDirectory: true,
       });
 
@@ -60,7 +61,7 @@ export default function DocumentUploader({ onUploadSuccess }: UploaderProps) {
         formData.append('file', {
           uri: Platform.OS === 'ios' ? file.uri.replace('file://', '') : file.uri,
           name: file.name,
-          type: file.mimeType || 'text/plain',
+          type: file.mimeType || 'application/octet-stream', // Fallback for robust web/mobile types
         } as any);
       }
 
@@ -94,7 +95,7 @@ export default function DocumentUploader({ onUploadSuccess }: UploaderProps) {
         
         <Text style={[styles.title, { color: theme.text }]}>Upload Knowledge Base</Text>
         <Text style={[styles.subtitle, { color: theme.subtext }]}>
-          Select a text or markdown file to provide context for the AI.
+          Select a text, markdown, or PDF file to provide context for the AI.
         </Text>
 
         <TouchableOpacity 
@@ -116,7 +117,7 @@ export default function DocumentUploader({ onUploadSuccess }: UploaderProps) {
             <View style={styles.idleState}>
               <Ionicons name="document-attach" size={32} color={theme.subtext} />
               <Text style={styles.uploadText}>Tap to browse files</Text>
-              <Text style={[styles.fileHint, { color: theme.subtext }]}>Supports .txt and .md</Text>
+              <Text style={[styles.fileHint, { color: theme.subtext }]}>Supports .txt, .md, and .pdf</Text>
             </View>
           )}
         </TouchableOpacity>
